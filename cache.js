@@ -1,23 +1,34 @@
 var DEFAULT_WAIT = 40;
+var slice = Array.prototype.slice;
 
 function SmartCache() {
 	this.data = {};
-	this._sources = {};
 	this._timeouts = {};
+
+	this._sources = {};
 	this._pending = {};
 }
 SmartCache.prototype.add = function(name, fn, expire) {
 	fn._expire = expire;
 	this._sources[name] = fn;
 }
-SmartCache.prototype.get = function(name, cb) {
-	if(name in this.data) { // Try to get the value from stored data
-		cb(this.data[name]);
+SmartCache.prototype.get = function(name, arg, cb) {
+	var key = name;
+	if(cb == null) {
+		cb = arg;
+		arg = null;
+	}
+	if(arg != null) {
+		key += ':' + arg;
+	}
+
+	if(key in this.data) { // Try to get the value from stored data
+		cb(this.data[key]);
 		return;
 	}
 	var p = this._pending;
-	if(p[name]) { // Someone is already getting it, just wait
-		setTimeout(this.get.bind(this, name, cb), DEFAULT_WAIT);
+	if(p[key]) { // Someone is already getting it, just wait
+		setTimeout(this.get.bind(this, name, arg, cb), DEFAULT_WAIT);
 		return;
 	}
 	var fn = this._sources[name];
@@ -25,10 +36,10 @@ SmartCache.prototype.get = function(name, cb) {
 		cb();
 		return;
 	}
-	p[name] = true;
-	fn(function(v) {
-		p[name] = false;
-		this.set(name, v, fn._expire);
+	p[key] = true;
+	fn(arg, function(v) {
+		p[key] = false;
+		this.set(key, v, fn._expire);
 		cb(v);
 	}.bind(this));
 }

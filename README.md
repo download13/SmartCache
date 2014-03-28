@@ -8,15 +8,15 @@ Not every request you serve needs to be making a database call. For lots of publ
 API
 ===
 
-.add(name, fn, expire)
+.add(name, fn[, expire])
 ------------------------
 
-Add a new data source called `name`. The cached value of `name` will expire every `expire` milliseconds. `fn` will be called with one argument (a callback function) on every refresh.
+Add a new data source called `name`. The cached value of `name` will expire every `expire` milliseconds. `fn` should be of the form `function(arg, cb)` where `cb` is the callback used to return the value, and `arg` is a (possibly null) argument passed from a `get` call. Each value from this source with a different `arg` will be cached seperately.
 
-.get(name, cb)
+.get(name[, argument], cb)
 --------------
 
-Get a value by name. `cb` is called with one argument (the value).
+Get a value by name. `cb` is called with one argument (the value). `argument` is an optional parameter that will be passed to the data source if available for this request.
 
 .set(name, value[, expire])
 ---------------------------
@@ -34,15 +34,29 @@ examples
 ```javascript
 var cache = require('smartcache')(); // Get new cache
 
-cache.add('news', 5000, function(cb) { // Every 5 seconds is good enough
+cache.add('news', function(arg, cb) {
 	db.getNewsItems(function(items) {
-		cb(newsTemplate.render(items)); // No error reporting, send as first argument
+		cb(newsTemplate.render(items));
 	});
-});
+}, 5000); // Every 5 seconds is good enough
 
 function serveNews(req, res) {
 	cache.get('news', function(news) {
 		res.send(news);
+	});
+}
+```
+
+An example passing arguments to the data source
+
+```javascript
+cache.add('hi', function(arg, cb) {
+	cb('Hello ' + arg + '!');
+}); // No expire argument; cached values never expire
+
+function serveHello(req, res) {
+	cache.get('hi', 'Larry', function(m) {
+		res.send(m);
 	});
 }
 ```
